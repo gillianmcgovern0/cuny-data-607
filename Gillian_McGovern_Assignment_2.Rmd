@@ -1,0 +1,139 @@
+---
+title: "Gillian McGovern - DATA 607 Assignment 2"
+author: "Gillian McGovern"
+date: "2025-02-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+This assignment will explore:
+
+* Building a Table in SQL
+* Storing data in SQL database
+* Transfering data from SQL database to R dataframe
+* Handling missing data strategy
+
+The table that will be used is about the ratings of six recent popular movies:
+
+* Barbie
+* Oppenheimer
+* Top Gun Maverick
+* Avatar The Way of Water
+* Wicked
+* Get Out
+
+## Loading the Libraries
+
+```{r}
+library(RMySQL)
+```
+
+
+## Build Table
+
+Connect to MySQL:
+
+```{r}
+# Connect to MySQL
+con <- dbConnect(MySQL(),
+                 user = "gillian.mcgovern82",
+                 password = "movies607", # new password I set below
+                 dbname = "gillian.mcgovern82",
+                 host = "cuny607sql.mysql.database.azure.com",
+                 port = 3306)
+# Check if the connection is successful
+if(!dbIsValid(con)) {
+  stop("Connection failed")
+} else {
+  print("Connection successful")
+}
+```
+
+
+
+```{r}
+drop_table_query <- 'DROP TABLE IF EXISTS Movies'
+dbGetQuery(con, drop_table_query)
+create_table_query <- 'CREATE TABLE Movies(Id INTEGER PRIMARY KEY, Barbie INT, Oppenheimer INT, TopGunMaverick INT, AvatarTheWayOfWater INT, Wicked INT, GetOut INT)'
+dbGetQuery(con, create_table_query)
+
+# Check the table creation was a success
+show_tables_query <- "SHOW tables"
+tables_result <- dbGetQuery(con, show_tables_query)
+print(tables_result)
+```
+
+## Store data in SQL database
+
+```{r}
+# Insert data into table
+dbGetQuery(con,"INSERT INTO Movies VALUES(1, 5, 3, 3, 2, 4, 5)")
+dbGetQuery(con,"INSERT INTO Movies VALUES(2, 4, 2, 3, 5, 3, 5)")
+dbGetQuery(con,"INSERT INTO Movies VALUES(3, 4, 2, 3, 5, 4, 4)")
+dbGetQuery(con,"INSERT INTO Movies VALUES(4, 3, 3, 5, 4, 3, 4)")
+dbGetQuery(con,"INSERT INTO Movies VALUES(5, 3, 4, 3, 4, 4, 5)")
+
+# Change password
+dbGetQuery(con,"SET PASSWORD = 'movies607'")
+```
+
+
+## Transfer data from SQL database to R dataframe
+
+```{r}
+data_query <- "SELECT * FROM Movies";
+df <- dbGetQuery(con, data_query)
+print(df)
+```
+
+## Missing data strategy
+
+Handling missing data most likely depends on the project, the data you're looking at and why the value(s) is missing. For this particular scenario, if someone is just filling out a questionnaire and a score is missing, I would assume that the person wasn't really paying attention to the survey itself. So I would omit the person's entire response to the survey, and therefore would remove a row from the dataframe as I do not trust that response.
+
+For many stats in R, you can add `na.rm = TRUE` to omit the `NA` value. So for example, if I wanted to get the mean rating for Wicked but only 4 out of the 5 people rated that movie, I would do:
+
+```{r}
+partial_responses_wicked <- c(4, 3, NA, 3, 4) # Just for example, I am using a vector as opposed to pulling a column from a df
+mean(x = partial_responses_wicked, na.rm = TRUE)
+```
+
+If we know the value is missing simply due to it being missed by the person taking the survey, a cool way to handle missing info would be to predict the person's rating based on other people's ratings, and the person's ratings of the other movies.
+
+## Bonus Challenge Questions
+
+* Are you able to use a password without having to share the password with people who are
+viewing your code?
+
+One way to do this is putting the password in a file in GitHub and reading the file. Since this is still not very secure, this would not be the ideal way to do this.
+
+```{r}
+pw_df <- read.csv(url("https://raw.githubusercontent.com/gillianmcgovern0/cuny-data-607/refs/heads/main/movies_607.csv"))
+pw <- colnames(pw_df)
+
+# Connect to MySQL
+con <- dbConnect(MySQL(), 
+                 user = "gillian.mcgovern82", 
+                 password = pw, 
+                 dbname = "gillian.mcgovern82", 
+                 host = "cuny607sql.mysql.database.azure.com", 
+                 port = 3306)
+# Check if the connection is successful
+if(!dbIsValid(con)) {
+  stop("Connection failed")
+} else {
+  print("Connection successful")
+}
+```
+
+A method I would like to try to use, but didn't have a chance, is Vault, particularly vaultr. Based what I've seen online, you could create a VAULT_AUTH_GITHUB_TOKEN envrironment variable where anyone could connect and access to vault via GitHub:
+
+```{r}
+# github_vault_client <- vaultr::vault_client(login = "github")
+```
+
+Then in Vault, you would create a secret to represent the password. That way you would just need the path to the secret and not the password itself.
