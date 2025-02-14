@@ -1,0 +1,239 @@
+---
+title: "Gillian_McGovern_Assignment_3"
+author: "Gillian McGovern"
+date: "2025-02-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+This assignment goes over normalization and character manipulation examples
+
+## Loading the Libraries
+
+```{r}
+library(tidyverse)
+library(babynames)
+```
+
+
+## Normalization
+
+1. Provide an example of at least three dataframes in R that demonstrate normalization. The dataframes can contain any data, either real or synthetic. Although normalization is typically done in SQL and relational databases, you are expected to show this example in R, as it is our main work environment in this course.
+
+Let's create normalized dataframes for gym data (this data is synthetic):
+
+```{r}
+# gym trainers and which class they teach
+trainer_classes <- data.frame (
+  TrainerID = c("T01", "T02", "T03", "T03", "T03", "T04", "T04", "T05", "T06", "T07", "T08", "T08"),
+  ClassID = c("C03", "C01", "C01", "C02", "C03", "C03", "C04", "C05", "C04", "C02", "C03", "C05")
+)
+trainer_classes
+
+trainers_locations <- data.frame(
+  TrainerID = c("T01", "T02", "T03", "T04", "T05", "T06", "T07", "T08"),
+  Name = c("Steve", "Sara", "Bill", "Bill", "Bill", "Rob", "Rob", "Tina"),
+  LocationID = c("10", "10", "10", "11", "12", "13", "11", "12")
+)
+trainers_locations
+
+classes <- data.frame (
+  ClassID = c("C01", "C02", "C03", "C04", "C05"),
+  Class = c("Pilates", "Yoga", "Weights", "Cycling", "Treadmill")
+)
+classes
+
+locations <- data.frame (
+  LocationID = c("10", "11", "12", "13"),
+  Location = c("Tribeca", "Williamsburg", "UES", "FiDi")
+)
+locations
+```
+
+These dataframes are:
+
+* trainer_classes: Each row represents a gym trainer (tied to the location) and the class they teach
+* trainers_locations: Each row represents a trainer and the location they teach at
+* classes: Each row represents a unique class
+* locations: Each represents a unique gym location
+
+Having the different dataframes is important here because trainers can teach multiple classes at multiple locations.
+
+## Character Manipulation
+
+2. Using the 173 majors listed in fivethirtyeight.com’s College Majors dataset [https://fivethirtyeight.com/features/the-economic-guide-to-picking-a-college-major/], provide code that identifies the majors that contain either "DATA" or "STATISTICS"
+
+Load the data:
+
+```{r}
+majors_list_df <- read.csv(url("https://raw.githubusercontent.com/fivethirtyeight/data/refs/heads/master/college-majors/majors-list.csv"))
+majors_list_df
+```
+
+List out the majors containing "DATA" or "STATISTICS":
+
+```{r}
+str_view(majors_list_df$Major, "DATA|STATISTICS")
+```
+
+As seen above, the results are:
+
+* MANAGEMENT INFORMATION SYSTEMS AND STATISTICS
+* COMPUTER PROGRAMMING AND DATA PROCESSING
+* STATISTICS AND DECISION SCIENCE
+
+The two exercises below are taken from R for Data Science, 14.3.5.1 in the on-line version:
+
+3. Describe, in words, what these expressions will match:
+
+* `(.)\1\1`
+
+This is a regular expression, so to turn it into a string defining the regex, we must add a `\` before each `\`:
+
+```{r}
+str_view("aaaabbc", "(.)\\1\\1")
+str_view("1111", "(.)\\1\\1")
+```
+
+Break down of the regex:
+
+* `(.)` This is a group and will match any single character (has a single `.`)
+* `\1` will match whatever is in the first group
+* `\1` will match whatever is in the first group
+
+So this regex will capture any pattern that has a character 3 times in a row such as "aaa", "111", etc.
+
+* `"(.)(.)\\2\\1"`
+
+This is a string defining a regular expression, so we can just throw this into the `str_view` function:
+
+```{r}
+str_view(fruit, "(.)(.)\\2\\1")
+str_view("aaaabbc", "(.)(.)\\2\\1")
+str_view("11111", "(.)(.)\\2\\1")
+```
+
+Break down of the regex:
+
+* `(.)` This is a group and will match any single character (has a single `.`)
+* `(.)` This is the 2nd group and will match any single character (has a single `.`)
+* `\2` will match whatever is in the second group
+* `\1` will match whatever is in the first group
+
+So this regex will capture any pattern that has a certain character (first group), followed by another character (second group) repeated twice, followed by the first character. Note, the second character/group can be anything, so it can be the same as the first character/group. This is why `eppe` is captured for `pepper`, and `111` is captured for `1111`.
+
+* `(..)\1`
+
+This is a regular expression, so to turn it into a string defining the regex, we must add a `\` before each `\`:
+
+```{r}
+str_view(fruit, "(..)\\1")
+str_view("aaaabbc", "(..)\\1")
+str_view("11111", "(..)\\1")
+```
+
+Break down of the regex:
+
+* `(..)` This is a group and will match any 2 characters (has 2 `.`s)
+* `\1` will match whatever is in the first group
+
+So this regex will capture any pattern that has any 2 characters (first group), followed by the same set of 2 characters, such as `anan` in `banana` and `1111` in `1111`.
+
+* `"(.).\\1.\\1"`
+
+This is a string defining a regular expression, so we can just throw this into the `str_view` function:
+
+```{r}
+str_view(fruit, "(.).\\1.\\1")
+str_view("11111", "(.).\\1.\\1")
+str_view("12131", "(.).\\1.\\1")
+```
+
+Break down of the regex:
+
+* `(.)` This is a group and will match any single character (has a single `.`)
+* `.` This will match any single character
+* `\1` will match whatever is in the first group
+* `.` This will match any single character
+* `\1` will match whatever is in the first group
+
+So this regex will capture any pattern that has a certain character (first group), followed by another character (can be any), followed by the first group/character, followed by another character (can be any), and lastly followed by the first group/character. This is why `apaya` is captured for `papaya`, and `12131` is captured for `12131`.
+
+* `"(.)(.)(.).*\\3\\2\\1"`
+
+This is a string defining a regular expression, so we can just throw this into the `str_view` function:
+
+```{r}
+str_view(sentences, "(.)(.)(.).*\\3\\2\\1")
+str_view("12345678.321", "(.)(.)(.).*\\3\\2\\1")
+```
+
+Break down of the regex:
+
+* `(.)` This is a group and will match any single character (has a single `.`)
+* `(.)` This is the 2nd group and will match any single character (has a single `.`)
+* `(.)` This is the 3rd group and will match any single character (has a single `.`)
+* `.` This will match any single character
+* `*` 0 or more matches
+* `\3` will match whatever is in the 3rd group
+* `\2` will match whatever is in the 2nd group
+* `\1` will match whatever is in the 1st group
+
+So this regex will capture any pattern that has a certain character (1st group), followed by any other single character (2nd group), followed by any other single character (3rd group), followed by either 0 or more characters (can be any), followed by the 3rd group/character, followed by the 2nd group/character, and lastly followed by the 1st group/character. Basically, the first three characters must match the last three characters (reversed) for this regex. This is why ` the carpet on the right ` is captured via this regex (starts with ` .th` and ends with `ht. `).
+
+4. Construct regular expressions to match words that:
+
+4.1 Start and end with the same character.
+
+`(.).*\1` or `"(.).*\\1"`
+
+```{r}
+str_view(words, "(.).*\\1")
+```
+
+Break down of the regex:
+
+* `(.)` This is a group and will match any single character (has a single `.`)
+* `.` This will match any single character
+* `*` 0 or more matches
+* `\1` will match whatever is in the 1st group
+
+4.2 Contain a repeated pair of letters (e.g. "church" contains "ch" repeated twice.)
+
+`(\w\w).*\\1` or `"(\\w\\w).*\\1"`
+
+```{r}
+str_view(words, "(\\w\\w).*\\1")
+str_view("church", "(\\w\\w).*\\1")
+```
+
+Break down of the regex:
+
+* `(\w\w)` This is a group and will match any 2 "word" characters
+* `.` This will match any single character
+* `*` 0 or more matches
+* `\1` will match whatever is in the 1st group
+
+4.3 Contain one letter repeated in at least three places (e.g. "eleven" contains three "e"s.)
+
+`(\w).*\1.*\1` or `"(\\w).*\\1.*\\1"`
+
+```{r}
+str_view(words, "(\\w).*\\1.*\\1")
+str_view("aaba", "(\\w).*\\1.*\\1")
+```
+
+Break down of the regex:
+
+* `(\w)` This is a group and will match any single "word" character
+* `.` This will match any single character
+* `*` 0 or more matches
+* `\1` will match whatever is in the 1st group
+* `.` This will match any single character
+* `*` 0 or more matches
+* `\1` will match whatever is in the 1st group
