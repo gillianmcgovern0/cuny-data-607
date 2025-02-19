@@ -1,0 +1,191 @@
+---
+title: "Gillian_McGovern_Assignment_3"
+author: "Gillian McGovern"
+date: "2025-02-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+This assignment goes over normalization and character manipulation examples
+
+## Loading the Libraries
+
+```{r}
+library(tidyverse)
+library(babynames)
+```
+
+
+## Normalization
+
+1. Provide an example of at least three dataframes in R that demonstrate normalization. The dataframes can contain any data, either real or synthetic. Although normalization is typically done in SQL and relational databases, you are expected to show this example in R, as it is our main work environment in this course.
+
+Let's create normalized dataframes for gym data (this data is synthetic):
+
+```{r}
+# gym trainers and which class they teach
+trainer_classes <- data.frame (
+  TrainerID = c("T01", "T02", "T03", "T03", "T03", "T04", "T04", "T05", "T06", "T07", "T08", "T08"),
+  ClassID = c("C03", "C01", "C01", "C02", "C03", "C03", "C04", "C05", "C04", "C02", "C03", "C05")
+)
+trainer_classes
+
+trainers_locations <- data.frame(
+  TrainerID = c("T01", "T02", "T03", "T04", "T05", "T06", "T07", "T08"),
+  Name = c("Steve", "Sara", "Bill", "Bill", "Bill", "Rob", "Rob", "Tina"),
+  LocationID = c("10", "10", "10", "11", "12", "13", "11", "12")
+)
+trainers_locations
+
+classes <- data.frame (
+  ClassID = c("C01", "C02", "C03", "C04", "C05"),
+  Class = c("Pilates", "Yoga", "Weights", "Cycling", "Treadmill")
+)
+classes
+
+locations <- data.frame (
+  LocationID = c("10", "11", "12", "13"),
+  Location = c("Tribeca", "Williamsburg", "UES", "FiDi")
+)
+locations
+```
+
+These dataframes are:
+
+* trainer_classes: Each row represents a gym trainer (tied to the location) and the class they teach
+* trainers_locations: Each row represents a trainer and the location they teach at
+* classes: Each row represents a unique class
+* locations: Each represents a unique gym location
+
+Having the different dataframes is important here because trainers can teach multiple classes at multiple locations.
+
+Having tables with an ID and just one feature column is beneficial because each attribute depends only on the primary key, which is the ID in this case. In the real world, datasets can be very complicated with many tables, so it is easier to be able to refer back to a single table if there is a certain part of the data that needs to be looked into. Overall, it makes the data easier to understand.
+
+Additionally, having normalized tables protects the data from insertion, update and deletion anomalies. If you changed a feature in the main table, you could risk missing updating critical rows or parts of the data, causing the data to be inaccurate or not make any sense (update anomaly). With normalized tables, there is no chance of repeating data or data that contradicts itself. Also, if you delete a row in the main table, you could risk removing critical data permanently (deletion anomaly). You could also risk not adding/inserting critical data because it doesn't exactly fit the features in the main table (insertion anomaly). For example, if a new trainer is hired at a gym location, but hasn't been assign a class yet, it's still important to add the new trainer's info to the dataset. This is only possible by having a separate table dedicated for trainers. If the main table contained everything, the new trainer wouldn't fit the criteria of the main table.
+
+With normalized tables, you can easily navigate the data, and build upon it.
+
+## Character Manipulation
+
+2. Using the 173 majors listed in fivethirtyeight.com’s College Majors dataset [https://fivethirtyeight.com/features/the-economic-guide-to-picking-a-college-major/], provide code that identifies the majors that contain either "DATA" or "STATISTICS"
+
+Load the data:
+
+```{r}
+majors_list_df <- read.csv(url("https://raw.githubusercontent.com/fivethirtyeight/data/refs/heads/master/college-majors/majors-list.csv"))
+majors_list_df
+```
+
+List out the majors containing "DATA" or "STATISTICS":
+
+```{r}
+str_view(majors_list_df$Major, "DATA|STATISTICS")
+```
+
+As seen above, the results are:
+
+* MANAGEMENT INFORMATION SYSTEMS AND STATISTICS
+* COMPUTER PROGRAMMING AND DATA PROCESSING
+* STATISTICS AND DECISION SCIENCE
+
+The two exercises below are taken from R for Data Science, 14.3.5.1 in the on-line version:
+
+3. Describe, in words, what these expressions will match:
+
+* `(.)\1\1`
+
+This is a regular expression, so to turn it into a string defining the regex, we must add a `\` before each `\`:
+
+```{r}
+str_view("aaaabbc", "(.)\\1\\1")
+str_view("1111", "(.)\\1\\1")
+```
+
+
+This will match any character repeated 3 times in a row such as "aaa", "111", etc.
+
+* `"(.)(.)\\2\\1"`
+
+This is a string defining a regular expression, so we can just throw this into the `str_view` function:
+
+```{r}
+str_view(fruit, "(.)(.)\\2\\1")
+str_view("aaaabbc", "(.)(.)\\2\\1")
+str_view("11111", "(.)(.)\\2\\1")
+```
+
+This will match a pair of characters immediately followed by the same pair of characters but reversed such as "ep" followed by "pe", or "11" followed by "11".
+
+* `(..)\1`
+
+This is a regular expression, so to turn it into a string defining the regex, we must add a `\` before each `\`:
+
+```{r}
+str_view(fruit, "(..)\\1")
+str_view("aaaabbc", "(..)\\1")
+str_view("1111111", "(..)\\1")
+```
+
+This will match a repeated pair of characters such as "anan" or "1111".
+
+* `"(.).\\1.\\1"`
+
+This is a string defining a regular expression, so we can just throw this into the `str_view` function:
+
+```{r}
+str_view(fruit, "(.).\\1.\\1")
+str_view("11111", "(.).\\1.\\1")
+str_view("121314", "(.).\\1.\\1")
+```
+
+This will match a character repeated in three places, separated by any single character such as "12131" in "121314".
+
+* `"(.)(.)(.).*\\3\\2\\1"`
+
+This is a string defining a regular expression, so we can just throw this into the `str_view` function:
+
+```{r}
+str_view(sentences, "(.)(.)(.).*\\3\\2\\1")
+str_view("12345678.321", "(.)(.)(.).*\\3\\2\\1")
+```
+
+This will match strings that start and end with the same 3 characters, but the end pattern is reversed, such as ` the carpet on the right ` (` th` and `ht `).
+
+4. Construct regular expressions to match words that:
+
+4.1 Start and end with the same character.
+
+`^(.).*\1$` or `"^(.).*\\1$"`
+
+```{r}
+str_view(words, "^(.).*\\1$")
+```
+
+Since we want to match the start and end of the string we use `^` and `$` , and the middle regex captures a character followed by the same character with any character in between.
+
+4.2 Contain a repeated pair of letters (e.g. "church" contains "ch" repeated twice.)
+
+`(..).*\1` or `"(..).*\\1"`
+
+```{r}
+str_view(words, "(..).*\\1")
+str_view(fruit, "(..).*\\1")
+```
+
+This will capture a pair of characters repeated, with any amount of characters in between the 2 pairs.
+
+4.3 Contain one letter repeated in at least three places (e.g. "eleven" contains three "e"s.)
+
+`(.).*\1.*\1` or `"(.).*\\1.*\\1"`
+
+```{r}
+str_view(words, "(.).*\\1.*\\1")
+str_view("aaba", "(.).*\\1.*\\1")
+```
+
+This will capture a character repeated 3 times, with any amount of characters in between each character.
