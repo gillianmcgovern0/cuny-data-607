@@ -1,0 +1,200 @@
+---
+title: "Gillian_McGovern_Assignment_4"
+author: "Gillian McGovern"
+date: "2025-02-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+This assignment goes over tidying and transforming data.
+
+## Loading the Libraries
+
+```{r}
+library(tidyverse)
+library(tidyr)
+library(dplyr)
+```
+
+## Read the Data
+
+(2) Read the information from your .CSV file into R, and use tidyr and dplyr as needed to tidy
+and transform your data.
+
+```{r}
+data <- read.csv(url("https://raw.githubusercontent.com/gillianmcgovern0/cuny-data-607/refs/heads/main/DATA_607_Assignment_4.csv"))
+print(data)
+```
+
+The first major problem is that we have missing airline values in 2 rows. Additionally, the column names either have bad format or do not make sense (`X` for example). So let's first fix both:
+
+```{r}
+# Fill in the missing values
+data[2,1] = "ALASKA"
+data[5, 1] = "AM WEST"
+
+# Rename columns
+names(data) = c("airline", "on_time_or_delayed", "Los Angeles", "Phoenix", "San Diego", "San Francisco", "Seattle")
+print(data)
+```
+
+Now we have a data frame we can work with.
+
+## Tidy and Transform the Data
+
+Let's first turn the individual destination columns into values:
+
+```{r}
+data2 <- data |>
+  pivot_longer("Los Angeles":"Seattle", names_to = "dest", values_to = "count", values_drop_na = TRUE) |>
+  arrange(airline, dest)
+print(data2)
+```
+
+`pivot_longer` has made the data frame more clear. The destinations are actually values, so we now have a new column `dest` representing these destinations. Since there was a random empty row, I added `values_drop_na = TRUE` since this row was empty purely by mistake in the original dataset.
+
+This data frame is mostly tidy, but the `on_time_or_delayed` column is not a variable; it stores the names of variables (`on time` or `delayed`).
+
+To fix this, we'll now need to use `pivot_wider()`, pivoting `on_time_or_delayed` and `count` back out across multiple columns:
+
+```{r}
+data3 <- data2 |>
+  pivot_wider(names_from = on_time_or_delayed, values_from = count)
+colnames(data3)[3] <- "on_time" # Rename `on time` to `on_time`
+print(data3)
+```
+
+The values, variables, and observations are more clear now. The data frame contains 40 values representing 4 variables and 10 observations. The variables are:
+
+* `airline` with 2 possible values (ALASKA and AM WEST)
+* `dest` with 5 possible values (Los Angeles, Phoenix, San Diego, San Francisco and Seattle)
+* `on time` is a count
+* `delayed` is a count
+
+This form is tidy since there's one variable in each column, and each row now represents a flight unit corresponding to an `airline` and `destination` combination. Also, each cell contains a single value.
+
+Tidying the data has also made it easier to perform summary statistics which we'll explore in the next section.
+
+## Analysis
+
+(3) Perform analysis to compare the arrival delays for the two airlines.
+
+Rates are more meaningful than counts, so let's find the `on time` % for each airline and destination.
+
+Let's examine the on time arrival rates overall across the 2 airlines:
+
+```{r}
+# Total on time arrivals percentage across all destinations
+on_time_rate_data3_airline <- data3 |>
+  group_by(airline) |>
+  summarise(on_time_rate = sum(on_time) / (sum(on_time) + sum(delayed))) |>
+  arrange(desc(on_time_rate))
+on_time_rate_data3_airline
+
+# Plot the data
+on_time_rate_data3_airline |>
+  group_by(airline) |>
+  summarise(mean_on_time_rate = mean(on_time_rate)) |>
+  ggplot(aes(x = airline, y = mean_on_time_rate)) +
+  geom_col() +
+  labs(x = "Airline", y = "Overall On Time Arrival Rate")
+```
+
+This shows AM WEST as being more reliable with a higher overall on time arrival percentage of 89%.
+
+Just for reference, let's see how many flights we're looking at for each airline:
+
+```{r}
+# Add total amount of flights observed for each airline
+data3_total_count <- data3 |>
+  group_by(airline) |>
+  summarise(total_flights = sum(on_time) + sum(delayed)) |>
+  arrange(desc(total_flights))
+data3_total_count
+
+# Plot the data
+ggplot(data3_total_count, aes(x=airline, y=total_flights)) +
+    geom_bar(stat='identity', position='dodge')
+```
+
+AM WEST also has around twice the amount of data than ALASKA, which is something to keep in mind since more data is always beneficial.
+
+Now let's focus on destinations:
+
+```{r}
+# Look at on time rates, grouped by destination and airline
+on_time_rate_data3_airline_dest <- data3 |>
+  group_by(dest, airline) |>
+  summarise(on_time_rate = sum(on_time) / (sum(on_time) + sum(delayed)))
+on_time_rate_data3_airline_dest
+
+# Graph the on time arrival rates grouped by airline
+on_time_rate_data3_airline_dest |>
+  group_by(airline) |>
+  summarise(mean_on_time_rate = mean(on_time_rate)) |>
+  ggplot(aes(x = airline, y = mean_on_time_rate)) +
+  geom_col() +
+  labs(x = "Airline", y = "Mean On Time Arrival Rate for All Destinations")
+
+# Graph the on time arrival rates grouped by airline and destination
+ggplot(on_time_rate_data3_airline_dest, aes(x=dest, y=on_time_rate, fill=airline)) +
+    geom_bar(stat='identity', position='dodge')
+```
+
+As you can see in the data frame, ALASKA now has the higher on time arrival rate for each destination. We can also see this visually in the first graph where only the average on time arrival rate for both airlines are shown. The second graph, which plots both airline's on time arrival rates right next to each other for each destination, shows this as well.
+
+This method of looking at the data returned a different result from the first method. To look into this, let's now see the total amount of flights per destination:
+
+```{r}
+# Add total flights columns
+on_time_rate_data3_airline_dest_total <- data3 |>
+  group_by(dest, airline) |>
+  summarise(total_flights = sum(on_time) + sum(delayed))
+on_time_rate_data3_airline_dest_total
+
+# Plot the data
+ggplot(on_time_rate_data3_airline_dest_total, aes(x=dest, y=total_flights, fill=airline)) +
+    geom_bar(stat='identity', position='dodge')
+```
+
+As you can see, most of AM WEST's flights are coming from Phoenix (AM WEST overall has around twice the amount of flights observed). So ALASKA is the better option when you look at each destination individually, but when you combine all the destinations, it suddenly has worse results than AM WEST. I believe this is showing Simpson's paradox as AM WEST has way more flights (mainly coming from Phoenix), and the Phoenix on time arrival rate is significantly high. In this example, where the data is coming from (destinations) and the amount of data is influencing the on time arrival rates.
+
+If you removed Phoenix data, ALASKA would win overall:
+
+```{r}
+# Total on time arrivals percentage across all destinations
+on_time_rate_data3_airline_filtered <- data3 |>
+  filter(dest != "Phoenix") |>
+  group_by(airline) |>
+  summarise(on_time_rate = sum(on_time) / (sum(on_time) + sum(delayed))) |>
+  arrange(desc(on_time_rate))
+on_time_rate_data3_airline_filtered
+
+# Plot the data
+on_time_rate_data3_airline_filtered |>
+  group_by(airline) |>
+  summarise(mean_on_time_rate = mean(on_time_rate)) |>
+  ggplot(aes(x = airline, y = mean_on_time_rate)) +
+  geom_col() +
+  labs(x = "Airline", y = "Overall On Time Arrival Rate")
+```
+
+This further emphasizes that Phoenix is heavily influencing comparisons.
+
+## Conclusions
+
+In tidy data:
+
+* Each variable is a column; each column is a variable.
+* Each observation is a row; each row is an observation.
+* Each value is a cell; each cell is a single value.
+
+Other findings:
+
+* Rates are important, but it is also good to know how much data you're working with and where it's coming from
+* Even though something appears better in individual groups, it's possible it will look worse when all the groups are combined
