@@ -1,0 +1,179 @@
+---
+title: "Project_1"
+author: "Gillian McGovern"
+date: "2025-02-25"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+In this project, you’re given a text file with chess tournament results where the information has some structure. Your job is to create an R Markdown file that generates a .CSV file (that could for example be imported into a SQL database) with the following information for all of the players:
+
+Player’s Name, Player’s State, Total Number of Points, Player’s Pre-Rating, and Average Pre Chess Rating of Opponents
+
+## Load the libraries
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(tidyr)
+```
+
+## Read the data
+
+```{r}
+df = read.table(url('https://raw.githubusercontent.com/gillianmcgovern0/cuny-data-607/refs/heads/main/tournamentinfo.txt'), sep='\t', skip = 1) # skip reading the first line since it only contains dashes
+head(df, 10)
+```
+
+## Cleaning, Transforming and Tidying the Data
+
+There are many things wrong with this messy data frame. The first thing is that all the data is in one column, and there are special characters such as `\` and `-`. So to make it easier to read, let's remove the special characters and add columns:
+
+```{r}
+df <- df %>%
+  filter(V1 != "-----------------------------------------------------------------------------------------") %>%
+  separate(V1, c('pair', 'player_name', 'total', 'round_1', 'round_2', 'round_3', 'round_4', 'round_5', 'round_6', 'round_7'), sep="\\|")
+df <- df[-c(1:2),] # remove the first 2 rows since they're old headers
+head(df, 10)
+```
+
+The data frame is now looking better, but there are 2 rows devoted to each player, and the values of the 2nd of those 2 rows corresponds to different variables than the ones we currently have set up.
+
+Let's give a new `player_id` column to correspond each row with a player:
+
+```{r}
+# Identify rows that correspond to a single player by adding a new `player_id` variable
+amount_of_players <- nrow(df) / 2
+df$player_id <- rep(1:amount_of_players, each = 2)
+head(df, 10)
+```
+
+A tidy data frame contains one observation for each row, so let's apply that by adding on the even rows as new columns to the odd rows ( the main row for each player):
+
+```{r}
+# Using `player_id`, turn the 2nd row for each player, and add it on to the 1st row as new variables
+df2 <- df %>% 
+   group_by(player_id) %>%
+   mutate(row_number = row_number()) %>% # use row number to make creating the new variable names easier
+   ungroup %>%
+   pivot_wider(names_from = row_number, values_from = c(pair, player_name, total, round_1, round_2, round_3, round_4, round_5, round_6, round_7))
+head(df2, 10)
+```
+
+Now each observation is a row, but now the data frame is pretty large/wide. We know what we want for the final data frame, so let's first get rid of the data we know we won't need:
+
+```{r}
+# Remove columns we won't need for this data frame to make things simpler
+cols_to_delete <- c("pair_1","total_2", "round_1_2", "round_2_2", "round_3_2", "round_4_2", "round_5_2", "round_6_2", "round_7_2", "round_3_2")
+df3 <- df2[ , !(names(df2) %in% cols_to_delete)]
+head(df3, 10)
+```
+
+This data frame is still untidy because each cell does not represent a single value, particularly the column named `player_name_2`. We need the pre-rating from this column, which we know is the 2nd number listed in the string. So let's use regex to grab that 2nd number and add it as a new column called `pre_rating`:
+
+```{r}
+df4 <- df3 %>%
+  mutate(pre_rating = str_extract_all(player_name_2, "[0-9]+", simplify = TRUE)[,2])
+df4 <- df4[,-4] # Remove `player_name_2` since we extracted all the necessary data
+head(df4, 10)
+```
+
+Let's continue making this data frame tidy by ensuring each cell contains a single value. The last columns we need to fix are the ones that contain the information if the player won or lost the round and the "player ID" of the player's opponent. Let's create new variables for both of these values. Additionally, we won't need the information if the player won or lost for this project, so let's get rid of those columns to make things simpler:
+
+```{r}
+# Separate the rows containing 2 values into separate variables to improve tidiness
+df5 <- df4 %>% 
+  separate(round_1_1, c('round_1_final', 'round_1_opp'), sep="\\s+") %>%
+  separate(round_2_1, c('round_2_final', 'round_2_opp'), sep="\\s+") %>%
+  separate(round_3_1, c('round_3_final', 'round_3_opp'), sep="\\s+") %>%
+  separate(round_4_1, c('round_4_final', 'round_4_opp'), sep="\\s+") %>%
+  separate(round_5_1, c('round_5_final', 'round_5_opp'), sep="\\s+") %>%
+  separate(round_6_1, c('round_6_final', 'round_6_opp'), sep="\\s+") %>%
+  separate(round_7_1, c('round_7_final', 'round_7_opp'), sep="\\s+")
+cols_to_delete <- c("round_1_final","round_2_final", "round_3_final", "round_4_final", "round_5_final", "round_6_final", "round_7_final") # we don't need this data for this project
+df5 <- df5[ , !(names(df5) %in% cols_to_delete)]
+df4 <- df4[,-4] # Remove the original column bc we extracted the necessary data
+head(df5, 10)
+```
+
+This data is still untidy since, if we add more rounds to the tournament, we would need to continuously add more columns making the data frame wider and wider. Additionally, we'll need to perform statistics on the opponent ratings, so to avoid adding a bunch of columns, let's use a `pivot_longer` to create a new variable called `opp_id`:
+
+```{r}
+df6 <- df5 %>%
+  pivot_longer(cols = round_1_opp:round_7_opp, names_to = "round", values_to = "opp_id", values_drop_na = TRUE)
+head(df6, 10)
+```
+
+Now each observation represents an individual player and a round of chess the player played. So if a new round occurs, new rows can be inserted (this won't be the final data frame, but this type of data frame we'll be easier to work with in order to reach the final data frame for this project). One thing I would probably explore doing is creating a data frame for each player so if a new round is played, you wouldn't need to add 2 rows to a single data frame which has a risk of accidentally forgetting to add a round for a player. Alternatively, I would explore making each observation a player combination where each observation represents a single game played, again only adding 1 row of data for each game played as opposed to 2. This does not seem necessary for this project, so I won't explore this here.
+
+We know we'll need the average opponent rating for each player, so let's create a separate data frame specifically to give information about the player pre-ratings:
+
+```{r}
+df_ratings <- df6 %>%
+  select(player_id, player_name_1, pre_rating)
+df_ratings_final <- distinct(df_ratings) # Get rid of the duplicate rows
+df_ratings_final
+```
+
+Now let's use match the `player_id` from `df_ratings_final` and `opp_id` from the original data frame to create a new variable `opp_rating` for the opponent rating in the original data frame:
+
+```{r}
+df7 <- df6 %>%
+  mutate(opp_rating = df_ratings_final$pre_rating[as.numeric(opp_id)]) # grab pre-rating from `df_ratings_final`
+head(df7, 10)
+```
+
+A player does not have to actually play a round of chess for each round. For example, the player could skip a round. For this project, we do not care about this information, so let's just remove the observations where a player didn't play a round of chess.
+
+Last bit of information we need is the average opponent rating for each player. For that, let's create a new data frame and perform some statistics. Let's group by `player_id`, and find the average of the `opp_rating` column and summarize the data:
+
+```{r}
+df8 <- df7 %>%
+  filter(!is.na(as.numeric(opp_rating))) %>% # Don't count rounds if it's a B or an H
+  group_by(player_id) %>%
+  summarise(opp_mean = mean(as.numeric(opp_rating)))
+head(df8, 10)
+```
+
+Using the data frame that had a single player in each row (since we know the final data frame is more of a summary data frame, which will have a row/observation for a single player), let's add on the new average opponent rating column:
+
+```{r}
+df9 <- df5 %>%
+  select(player_id , player_name_1, pair_2, total_1, pre_rating) %>%
+  mutate(avg_opp_rating = df8$opp_mean[as.numeric(player_id)]) %>%
+  select(player_name_1, pair_2, total_1, pre_rating, avg_opp_rating)
+head(df9, 10)
+```
+
+After selecting the specific columns needed for this task, we now have our final data frame.
+
+To improve our data frame, let's:
+
+* Rename the column names so they make sense
+* Remove the white space at the start and end of the strings
+* Identify the correct type for each column (so integers are not strings for example)
+* Round the average opponent pre-rating
+
+```{r}
+names(df9) <- c('player_name', 'player_state', 'total_points', 'player_pre_rating', 'avg_opp_pre_rating')
+# Remove white space and make sure number values are not strings
+df_final <- df9 %>% 
+  mutate(across(where(is.character), str_trim))
+df_final$total_points <- as.numeric(as.character(df_final$total_points))
+df_final$player_pre_rating <- as.numeric(as.character(df_final$player_pre_rating))
+df_final$avg_opp_pre_rating <- round(as.numeric(as.character(df_final$avg_opp_pre_rating)))
+df_final
+```
+
+This data frame has all the necessary data, so let's write it to a csv called `gtm_project1` in the user's `Downloads` folder:
+
+```{r}
+write.csv(df_final, "~/Downloads/gtm_project1.csv", row.names = FALSE)
+```
