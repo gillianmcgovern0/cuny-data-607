@@ -1,0 +1,270 @@
+---
+title: "Project2 - Dataset 3"
+author: "Gillian McGovern"
+date: "2025-03-07"
+output: html_document
+---
+
+## Dataset 1 - "Coca-Cola"
+
+For the third untidy data set, I chose Coca-Cola's financial info Excel sheet.
+
+This data set is untidy because years are represented as columns and variables are represent by rows.
+
+Source: https://www.kaggle.com/datasets/shivavashishtha/dirty-excel-data/data
+
+## Load the Libraries
+
+```{r}
+library(tidyverse)
+library(rvest)
+library(stringi)
+library(tidyr)
+library(ggplot2)
+library(fpp3)
+```
+
+## Read the Data
+
+```{r}
+df_coca_cola <- read_csv("https://raw.githubusercontent.com/gillianmcgovern0/cuny-data-607/refs/heads/main/Cola(COCA%20COLA%20CO).csv", skip = 2)
+df_coca_cola
+```
+
+This excel provides 3 different data sets within one spreadsheet, so let's create 3 unique data frames to represent the data.
+
+## Initial Clean Up (Date Frame 1)
+
+Let's first focus on the `Profit & Loss statement`. 
+
+```{r}
+profit_loss <- df_coca_cola[1:19,]
+head(profit_loss, 10)
+```
+
+The current columns are not the actual columns in the untidy data set (or at least how I perceived them), so let's remove the first row. Additionally, the first column is empty so let's remove that as well:
+
+```{r}
+names(profit_loss) <- profit_loss[1,]
+profit_loss <- profit_loss[-1,-1]
+profit_loss
+```
+
+Now this matches the untidy data set.
+
+## Tidying the Data
+
+Now let's change the individual years to rows/observations:
+
+```{r}
+colnames(profit_loss)[1] <- "test"
+profit_loss3 <- profit_loss %>% 
+   pivot_longer(cols = "FY '09":"FY '18", names_to = "year", values_to = "cost")
+glimpse(profit_loss3)
+```
+
+We now have a year column which is great, but now we need to make categories such as `NET OPERATING REVENUES` variables in the data frame:
+
+```{r}
+colnames(profit_loss)[1] <- "test"
+profit_loss4 <- profit_loss3 %>% 
+   pivot_wider(names_from = test, values_from = cost)
+head(profit_loss4, 10)
+```
+
+Now we have a tidy data frame! Each observation/row represents one year. Now if we wanted to add data for 2019, all we would need is a new row.
+
+Now let's do the same for the other data frames in the csv.
+
+`Balance Sheet`:
+
+```{r}
+balance <- df_coca_cola[21:63,]
+balance
+
+names(balance) <- balance[1,]
+balance <- balance[-1,-1]
+balance[10,1] <- "Assets held for sale_v2"
+balance
+
+balance2 <- balance %>% 
+   pivot_longer(cols = "FY '09":"FY '18", names_to = "year", values_to = "cost")
+balance2
+
+balance3 <- balance2 %>% 
+   pivot_wider(names_from = "in million USD", values_from = cost)
+balance3
+```
+
+Now we have a tidy data frame that matches the original.
+
+`Cash Flow Statement`:
+
+```{r}
+cash_flow <- df_coca_cola[65:101,]
+cash_flow
+
+names(cash_flow) <- cash_flow[1,]
+cash_flow <- cash_flow[-1,-1]
+cash_flow
+
+cash_flow2 <- cash_flow %>%
+   pivot_longer(cols = "FY '09":"FY '18", names_to = "year", values_to = "cost")
+cash_flow2
+
+cash_flow3 <- cash_flow2 %>%
+   pivot_wider(names_from = "in million USD", values_from = cost)
+cash_flow3
+```
+
+## Analysis
+
+For the analysis, I'll first focus on the Profit and Loss data frame.
+
+Let's first do some clean up and convert the year to an actual date, make column names lowercase, and remove special characters from column names:
+
+```{r}
+profit_loss5 <- profit_loss4
+
+profit_loss5$year <- paste("20", str_sub(profit_loss5$year,5), sep = "")
+
+names(profit_loss5) <- tolower(names(profit_loss5))
+names(profit_loss5) <- str_replace_all(names(profit_loss5), " ", "_")
+names(profit_loss5) <- str_replace_all(names(profit_loss5), "\\(", "")
+names(profit_loss5) <- str_replace_all(names(profit_loss5), "\\)", "")
+names(profit_loss5) <- str_replace_all(names(profit_loss5), ",", "")
+names(profit_loss5) <- str_replace_all(names(profit_loss5), ":", "")
+
+profit_loss6 <- profit_loss5[ , 1:18]
+names(profit_loss6)
+```
+
+Let's first see how gross profit changes over time:
+
+```{r}
+# Convert value to number
+profit_loss6$gross_profit <- as.numeric(gsub("," ,"", profit_loss6$gross_profit))
+
+ggplot(profit_loss6, aes(x=year, y=gross_profit)) +
+  geom_bar(stat='identity', position='dodge') +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+Profit increased until 2012 and then gradualy started to decrease.
+
+Comparatively, let's see how the general and administrative expense changed over time as well:
+
+```{r}
+profit_loss6$selling_general_and_administrative_expenses <- as.numeric(gsub("," ,"", profit_loss6$selling_general_and_administrative_expenses))
+profit_loss6
+ggplot(profit_loss6, aes(x=year, y=selling_general_and_administrative_expenses)) +
+  geom_bar(stat='identity', position='dodge') +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+What's interesting is that 2011 had a big jump in expense and also had a peak in 2012.
+
+Now let's see how the other major expense, Operating Charges, changes over time:
+
+```{r}
+profit_loss6$other_operating_charges <- as.numeric(gsub("," ,"", profit_loss6$other_operating_charges))
+profit_loss6
+ggplot(profit_loss6, aes(x=year, y=other_operating_charges)) +
+  geom_bar(stat='identity', position='dodge') +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+This graph does not show a peak in 2012, but it is interesting that this actually increases until 2017 with a drop in 2018. So in 2017, something happened where this took up a higher percentage of the expenses than other years (since the other expenses dropped).
+
+Now let's look at the Balance data frame, and do some of the same clean up:
+
+```{r}
+balance4 <- balance3
+
+balance4$year <- paste("20", str_sub(balance4$year,5), sep = "")
+names(balance4) <- tolower(names(balance4))
+names(balance4) <- str_replace_all(names(balance4), " ", "_")
+names(balance4) <- str_replace_all(names(balance4), "\\(", "")
+names(balance4) <- str_replace_all(names(balance4), "\\)", "")
+names(balance4) <- str_replace_all(names(balance4), ",", "")
+names(balance4) <- str_replace_all(names(balance4), ":", "")
+names(balance4) <- str_replace_all(names(balance4), "'", "")
+names(balance4) <- str_replace_all(names(balance4), "-", "_")
+balance4
+```
+
+```{r}
+# Remove columns we won't need for this data frame to make things simpler
+cols_to_delete <- c("assets", "liabilities", "na")
+balance5 <- balance4[ , !(names(balance4) %in% cols_to_delete)]
+balance5
+```
+
+
+```{r}
+convert_string_to_number <- function(column) {
+   as.numeric(gsub("," ,"", column))
+}
+
+balance5 <- balance5 %>% 
+  mutate(across(where(is.character), convert_string_to_number))
+balance5$year <- as.character(balance5$year)
+balance5
+```
+
+We now have a cleaner, tidy data frame.
+
+Let's look at individual percentages of liabilities for this, to see what is taking up the most liability:
+
+```{r}
+balance6 <- balance5 %>% 
+  mutate(accounts_payable_and_accrued_expenses_perc = accounts_payable_and_accrued_expenses / total_current_liabilities) %>%
+  mutate(loans_and_notes_payable_perc = loans_and_notes_payable / total_current_liabilities) %>%
+  mutate(current_maturities_of_long_term_debt_perc = current_maturities_of_long_term_debt / total_current_liabilities) %>% 
+  mutate(accrued_income_taxes_perc = accrued_income_taxes / total_current_liabilities) %>%
+  mutate(liabilities_held_for_sale_perc = liabilities_held_for_sale / total_current_liabilities) %>%
+  mutate(liabilities_held_for_sale_discontinued_operations_perc = liabilities_held_for_sale_discontinued_operations / total_current_liabilities)
+
+head(balance6, 10)
+```
+
+Let's see a graph of how total liabilities have changed over time:
+
+```{r}
+ggplot(balance6, aes(x=year, y=total_current_liabilities)) +
+  geom_bar(stat='identity', position='dodge') +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+The general trend is increasing with a peak in 2014.
+
+Let's see how `accounts_payable_and_accrued_expense` percentage has changed:
+
+```{r}
+ggplot(balance6, aes(x=year, y=accounts_payable_and_accrued_expenses_perc)) +
+  geom_bar(stat='identity', position='dodge') +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+ggplot(balance6, aes(x=year, y=loans_and_notes_payable_perc)) +
+  geom_bar(stat='identity', position='dodge') +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+ggplot(balance6, aes(x=year, y=current_maturities_of_long_term_debt_perc)) +
+  geom_bar(stat='identity', position='dodge') +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+So it looks like `loans_and_notes_payable_perc` most of the time, takes up most of the liabilities with the higher percentage. It looks like the general liability spike in 2014 could be attributed to `current_maturities_of_long_term_debt_perc` which also had a major increase in 2014. It's also interesting that this generally continued to increase until 2018 (peak at 2018).
+
+Let's finally compare total assets to total liabilities:
+
+```{r}
+ggplot(data = balance6, aes(x = total_assets, y = total_current_liabilities, color = year)) +
+  geom_point()
+```
+
+This shows a positive trend as total assets increases, the total liabilities also increases. This also shows in 2014, where there was a spike in liabilities, there was also a spike in total assets.
+
+## Conclusions
+
+This data set was a good practice for using pivot_wider and pivot_longer. This example feels like an excel sheet that could be seen in the real world, where the focus is on how easily presentable it is instead of the most efficient data structure.

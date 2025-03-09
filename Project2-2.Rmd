@@ -1,0 +1,208 @@
+---
+title: "Project2 - Dataset 2""
+author: "Gillian McGovern"
+date: "2025-03-06"
+output: html_document
+---
+
+## Dataset 1 - "Rolling Stone Album Rankings"
+
+For the second untidy data set, I chose the Rolling Stone Album Rankings. This data set compares album rankings from 2003, 2012, and, 2020.
+
+This data set is untidy because each row represents an album for multiple years (each year being a unique variable). If we now wanted to add in the year 2024, we would need to add a column making the data frame wider. Instead, each observation should represent and album and year combination.
+
+Source: https://github.com/rfordatascience/tidytuesday/tree/main/data/2024/2024-05-07
+
+## Load the Libraries
+
+```{r}
+library(tidyverse)
+library(rvest)
+library(stringi)
+library(tidyr)
+```
+
+## Read the Data
+
+```{r}
+df <- read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/refs/heads/main/data/2024/2024-05-07/rolling_stone.csv")
+df
+```
+
+We now have the data frame from Excel, so let's tidy up the data.
+
+## Tidy the Data
+
+The individual year variables are actually values that should be in a general year column:
+
+```{r}
+df2 <- df %>%
+  pivot_longer(cols = rank_2003:rank_2020, names_to = "year", values_to = "rank")
+head(df2, 10)
+```
+
+We now have a tidy data frame where each row represent a year and album combination. Note, I did not change the meaning of any of the current variables such as "differential" because I would be changing the data.
+
+Let's also change the `year` variable to exclude `rank_` from the values since that came from the transformation.
+
+```{r}
+df2$year <- str_sub(df2$year,6)
+df2
+```
+
+We now have a tidy data frame that represents the same data as the original, but is in a tidy format.
+
+## Analysis
+
+For the analysis, let's first see how the average Spotify popularity for each album release year changes over time. How do albums released a few decades ago compare to recent albums for a modern music platform like Spotify?
+
+```{r}
+spotify_popularity_release_year <- df2 %>%
+  group_by(release_year) %>%
+  summarise(mean_spotify_popularity = mean(spotify_popularity))
+spotify_popularity_release_year
+
+ggplot(data = spotify_popularity_release_year, aes(x = release_year, y = mean_spotify_popularity)) +
+  geom_line()
+```
+
+This is not the best graph since there isn't a top Rolling Stone album released each year, but we can somewhat see the general trend. It does seem like older, more classic albums, have lower popularity than recent albums. This makes sense because younger people are more likely to use Spotify and might not be listening to older, more classic albums.
+
+Now let's add in genre to see if that has changed over time:
+
+```{r}
+spotify_popularity_release_year <- df2 %>%
+  group_by(release_year, genre) %>%
+  summarise(mean_spotify_popularity = mean(spotify_popularity))
+
+ggplot(data = spotify_popularity_release_year, aes(x = release_year, y = mean_spotify_popularity, color = genre)) +
+  geom_point()
+```
+
+Since there are so many genres, it makes the graph a bit difficult to read. Looking at the colors, you can see there are a cluster of Soul/Gospel/R&B albums with a mean ranking of almost 50 that were released a little before 1970. 1960 - 1990 has the most Soul/Gospel/R&B albums. Additionally, Hip-Hop/Rap didn't start becoming popular until around 1990.
+
+Now let's look at the average current rankings of Soul/Gospel/R&B for each year in this table (which is 2003, 2012, and 2020):
+
+```{r}
+rank_genre <- df2 %>%
+  filter(genre == "Soul/Gospel/R&B", !is.na(rank)) %>%
+  group_by(year) %>%
+  summarise(mean_rank = mean(rank))
+rank_genre
+
+ggplot(data = rank_genre, aes(x = year, y = mean_rank)) +
+  geom_point()
+```
+
+
+What's interesting is that 2003 and 2012 have similar rankings, but 2020 there is a jump.
+
+Now let's focus on the year 2020 and average weeks on the billboard for each genre:
+
+```{r}
+genre_2020 <- df2 %>%
+  filter(year == "2020", !is.na(weeks_on_billboard)) %>%
+  group_by(genre) %>%
+  summarise(mean_weeks_on_billboard = mean(weeks_on_billboard))
+genre_2020
+
+ggplot(genre_2020, aes(x=genre, y=mean_weeks_on_billboard)) +
+  geom_bar(stat='identity', position='dodge') +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+As you can see, Hard Rock/Metal, Heartland Rock and Hip-Hop/Rap take the lead.
+
+Now let's look at the most popular artists based off of most weeks on the billboard for all albums:
+
+```{r}
+artist_weeks_on_billboard <- df2 %>%
+  filter(year == "2020", !is.na(weeks_on_billboard)) %>%
+  group_by(clean_name) %>%
+  summarise(sum_weeks_on_billboard = sum(weeks_on_billboard)) %>%
+  arrange(desc(sum_weeks_on_billboard))
+artist_weeks_on_billboard
+```
+
+As you can see, Kendrick Lamar takes the lead.
+
+Let's see if there is a particular album from Kendrick that is causing this:
+
+```{r}
+kendrick_albums <- df2 %>%
+  filter(year == "2020", clean_name == "Kendrick Lamar") %>%
+  group_by(album) %>%
+  summarise(sum_weeks_on_billboard = sum(weeks_on_billboard))
+kendrick_albums
+
+kendrick_albums2 <- kendrick_albums %>%
+  mutate(weeks_on_billboard_perc = sum_weeks_on_billboard / sum(sum_weeks_on_billboard)) %>%
+  arrange(desc(weeks_on_billboard_perc))
+kendrick_albums2
+
+ggplot(kendrick_albums2, aes(x=album, y=weeks_on_billboard_perc)) +
+  geom_bar(stat='identity', position='dodge') +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+good kid, m.A.A.d city has the most weeks on the billboard. This could also mean that this album has been out for the longest amount of time (earliest release year).
+
+Finally let's take a look at gender and Spotify popularity:
+
+```{r}
+gender <- df2 %>%
+  filter(year == "2020", !is.na(spotify_popularity)) %>%
+  group_by(artist_gender) %>%
+  summarise(mean_spotify_popularity = mean(spotify_popularity))
+gender
+
+ggplot(gender, aes(x=artist_gender, y=mean_spotify_popularity)) +
+  geom_bar(stat='identity', position='dodge') +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+As you can see, Females on average have a slightly more popular rating than Males and groups/bands (Male/Female).
+
+Taking a look at 2020, let's see which genres Males and Females are creating albums for:
+
+```{r}
+female_solo <- df2 %>%
+  filter(year == "2020", !is.na(spotify_popularity), artist_gender == "Female") %>%
+  group_by(genre) %>%
+  summarise(mean_spotify_popularity = mean(spotify_popularity)) %>%
+  arrange(desc(mean_spotify_popularity))
+female_solo
+
+ggplot(female_solo, aes(x=genre, y=mean_spotify_popularity)) +
+  geom_bar(stat='identity', position='dodge') +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+male_solo <- df2 %>%
+  filter(year == "2020", !is.na(spotify_popularity), artist_gender == "Male") %>%
+  group_by(genre) %>%
+  summarise(mean_spotify_popularity = mean(spotify_popularity)) %>%
+  arrange(desc(mean_spotify_popularity))
+male_solo
+
+ggplot(male_solo, aes(x=genre, y=mean_spotify_popularity)) +
+  geom_bar(stat='identity', position='dodge') +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+group <- df2 %>%
+  filter(year == "2020", !is.na(spotify_popularity), artist_gender == "Male/Female") %>%
+  group_by(genre) %>%
+  summarise(mean_spotify_popularity = mean(spotify_popularity)) %>%
+  arrange(desc(mean_spotify_popularity))
+group
+
+ggplot(group, aes(x=genre, y=mean_spotify_popularity)) +
+  geom_bar(stat='identity', position='dodge') +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+For Males and Females, Latin takes the lead. For Females, Singer-Songwriter has a higher average ranking than Female. Males have a higher Indie/Alternative Rock.
+
+For groups, Blues/Blues Rock takes the lead as the most popular genre on average.
+
+## Conclusions
+
+I think this type of data set was a good learning experience for taking variables representing individual years and turning them into part of an observation as a value in a general year column.
