@@ -1,0 +1,273 @@
+---
+title: "Project 2 - Dataset 1"
+author: "Gillian McGovern"
+date: "2025-03-05"
+output:
+  html_document:
+    df_print: paged
+---
+
+## Dataset 1 - "Women of the Year in 2020"
+
+## Overview
+
+For the first untidy data set, I chose to grab the table from https://www.bbc.com/news/world-55042935 which showcases BBC's women of the year in 2020. I chose this data set because I thought it would be a fun challenge to try to extract information via reading the html page directly. Since the data would be coming from an HTML page, the data would be present in a unique format.
+
+This data set is untidy because there really isn't any structure at all as it is coming from an HTML page. For this you need to create an observation for each women, with variables representing the different categories of information BBC provides, such as location, career, etc.
+
+Source: https://github.com/rfordatascience/tidytuesday/tree/2590ecee108c17b5ab5b3e02dc7ba6e25bf3f081/data/2020/2020-12-08
+
+## Load the Libraries
+
+Let's first load the libraries:
+
+```{r}
+library(tidyverse)
+library(rvest)
+library(stringi)
+library(tidyr)
+```
+
+## Read the Data
+
+For this particular set of data, I wanted to read from the page directly, as opposed to copying and pasting all the information into a csv. To do this, I used `read_html`.
+
+I then wanted to grab the information from the table. My goal was to get the elements from the div id `fw-100-women-2019` or `card__header` since that's where each "card" is located on the website, but I was not able to get an element/html node that worked (using `html_elements` and `html_nodes`). Since web scraping wasn't the point of this project, I decided to not spend too much time debugging, and just grabbed the whole body using `html_elements`.
+
+Then I know each card can be found in `cardId` within the body, so I used that to search for all the observations that will eventually need to go into my dataframe:
+
+```{r}
+html <- read_html("https://www.bbc.com/news/world-55042935")
+
+# Grab the html contents
+body <- html_elements(html, css = "body")
+
+# Retrieve the text
+final_string <- body |> html_text(trim = TRUE)
+
+# Clean up
+string_replaced <- gsub('\\"cardId', "cardId", final_string, fixed=TRUE)
+
+# Each woman is within a "cardId"
+cardIds <- str_extract(string_replaced, '([{]cardId.*[}])')
+
+# Break up the unique cardIds
+main_data <- str_split(cardIds, "\\},\\{cardId")
+```
+
+Since we now have a list, let's insert the list into a data frame:
+
+```{r}
+final_main_data <- main_data[[1]]
+df <- data.frame(
+    id = c(1:100),
+    info = final_main_data
+)
+head(df, 2)
+```
+
+## Tidy the Data
+
+We now have a very messy, untidy data frame. It is untidy since there's no real structure to this data frame. All the information is in one generic column called "info". Each cell doesn't represent a single value.
+
+Let's first separate `info` into proper variables:
+
+```{r}
+df2 <- df %>%
+  separate(info, c(NA, 'first_name_info'), sep=",\\\\", remove = FALSE) |>
+  separate(first_name_info, c(NA, 'first_name'), sep="firstName\\\\", remove = FALSE) |>
+  separate(info, c(NA, 'second_name_info'), sep="secondName\\\\", remove = FALSE) |>
+  separate(second_name_info, c('second_name', NA), sep=",\\\\", remove = FALSE) |>
+  separate(info, c(NA, 'image_url_info'), sep="imageUrl\\\\", remove = FALSE) |>
+  separate(image_url_info, c('image_url', NA), sep=",\\\\", remove = FALSE) |>
+  separate(info, c(NA, 'location_info'), sep="location\\\\", remove = FALSE) |>
+  separate(location_info, c('location', NA), sep=",\\\\", remove = FALSE) |>
+  separate(info, c(NA, 'twitter_info'), sep="twitter\\\\", remove = FALSE) |>
+  separate(twitter_info, c('twitter', NA), sep=",\\\\", remove = FALSE) |>
+  separate(info, c(NA, 'instagram_info'), sep="instagram\\\\", remove = FALSE) |>
+  separate(instagram_info, c('instagram', NA), sep=",\\\\", remove = FALSE) |>
+  separate(info, c(NA, 'role_info'), sep="role\\\\", remove = FALSE) |>
+  separate(role_info, c('role', NA), sep=",\\\\", remove = FALSE) |>
+  separate(info, c(NA, 'paragraphs_info'), sep="paragraphs\\\\", remove = FALSE) |>
+  separate(paragraphs_info, c('paragraphs', NA), sep=",\\\\", remove = FALSE) |>
+  separate(info, c(NA, 'category_info'), sep="category\\\\", remove = FALSE) |>
+  separate(category_info, c('category', NA), sep=",\\\\", remove = FALSE)
+head(df2, 3)
+```
+
+We have way too many variables that represent the same exact information. Let's now remove the extra columns so the data frame is tidy (so each cell contains a single value):
+
+```{r}
+# Remove columns we won't need for this data frame to make things simpler
+cols_to_delete <- c("info", "first_name_info","second_name_info", "image_url_info", "location_info", "twitter_info", "instagram_info", "role_info", "paragraphs_info", "category_info")
+df3 <- df2[ , !(names(df2) %in% cols_to_delete)]
+
+# Final data frame (first 10 rows)
+head(df3, 3)
+```
+
+We now have a tidy data frame where each observation represents a woman, and each category from the descriptive info on the HTML page is a variable. Additionally, each cell in the data frame only contains a single value.
+
+## Clean Up
+
+This data frame is tidy, but still very messy. There are a lot of extra characters from reading the HTML page that make the data very hard to read.
+
+Let's remove all the backslashes and unicode characters so the data frame is clearer:
+
+```{r}
+# Clean up the data
+df3$first_name<- str_sub(df3$first_name,5,-3)
+df3$second_name<- str_sub(df3$second_name,5,-3)
+df3$image_url<- str_sub(df3$image_url,5,-3)
+df3$location<- str_sub(df3$location,5,-3)
+df3$twitter<- str_sub(df3$twitter,5,-3)
+df3$instagram<- str_sub(df3$instagram,5,-3)
+df3$role<- str_sub(df3$role,5,-3)
+df3$paragraphs<- str_sub(df3$paragraphs,5,-3)
+df3$category<- str_sub(df3$category,5,-3)
+df3$paragraphs <-str_sub(df3$paragraphs,44,-16)
+df3$paragraphs <- str_replace_all(df3$paragraphs, c("(\\\\u003c)"="","(\\\\u003e)"="","(/pp)"=" ","(/p)"="", "(\\\\\\\\n)"=""))
+df3$category<-str_replace_all(df3$category, c('\\\\\\\"'=""))
+head(df3, 5)
+```
+
+We now have clean data that we can actually use and perform some statistical analysis with.
+
+## Analysis
+
+Let's first look into where these women are from:
+
+```{r}
+# Location
+location <- table(df3$location)
+location_df <- as.data.frame(location)
+location_df_sorted <-location_df |>
+  arrange(desc(Freq))
+
+# Plot the data
+location_df_top_15 <- location_df_sorted[1:15,]
+location_df_top_15
+
+ggplot(location_df_top_15, aes(x=Var1, y=Freq)) +
+  geom_bar(stat='identity', position='dodge') +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+As you can see, the US leads with the most women, followed by the UK and then India and Thailand.
+
+Now let's look at the type of careers these women have (top 10 roles):
+
+```{r}
+# Role
+role <- table(df3$role)
+role_df <- as.data.frame(role)
+role_df_sorted <-role_df |>
+  arrange(desc(Freq))
+
+# Plot the data
+role_df_sorted_top_10 <- role_df_sorted[1:10,]
+ggplot(role_df_sorted_top_10, aes(x=Var1, y=Freq)) +
+  geom_bar(stat='identity', position='dodge') +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+As you can see the most frequent occupation is an Activist, followed by a Campaigner, then a Disability activist. Since these women are most likely trying to make a difference in the world, which is how BBC recognizes them, it makes sense that a good portion of these women are activists.
+
+Let's see how many roles mention `Activist` or `activist`:
+
+```{r}
+df3_activist <- df3 %>%
+  filter(str_detect(role, 'Activist|activist'))
+nrow(df3_activist)
+```
+
+As you can see, there are 24 women that are some sort of activist, which is almost a quarter of the women.
+
+Now let's see what the general category variable shows us:
+
+```{r}
+# Category
+category <- table(df3$category)
+category_df <- as.data.frame(category)
+category_df_sorted <-category_df |>
+  arrange(desc(Freq))
+
+# Plot the data
+category_df_sorted_top_10 <- category_df_sorted[1:10,]
+ggplot(category_df_sorted_top_10, aes(x=Var1, y=Freq)) +
+    geom_bar(stat='identity', position='dodge')
+```
+
+As you can see Knowledge and Leadership are the main categories, which is again, not too surprising.
+
+Now let's see for the top locations, which categories are being represented:
+
+```{r}
+locations <- unique(location_df_top_15$Var1)
+cat_loc <- with(df3, table(df3$location, df3$category))
+cat_loc_df <- as.data.frame(cat_loc)
+cat_loc_df <- cat_loc_df |>
+  filter(Var1 %in% locations)
+
+# Combine location and category
+ggplot(cat_loc_df, aes(x=Var1, y=Freq, fill=Var2)) +
+  geom_bar(stat='identity', position='dodge') +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+What's interesting is that the US has the most for `Identity` while the UK has the most for `Knowledge`. We also know that the US and the UK are generally leading the overall women of the year.
+
+## Conclusions
+
+I think this type of data set was a good learning experience for reading html from a page. I believe my code could use a lot of improvement, but since web scraping is not the point of this project, I chose to not look into it further.
+
+This data felt like a good real world example of how data can be presented. Originally, each cell in the data frame contained all the information within the data frame, so making the values into variables was essential to making the data frame tidy.
+
+## Extra Tidying Practice
+
+Since I pulled data from an HTML page, I wanted to manually paste the information similar to how it's set up on the website into a CSV as well, and then perform tidying as extra practice.
+
+On the website, the data is presented as the first name of woman, then the location of the woman underneath, then followed by her role, etc. So I recreated a portion of the information (didn't do all 100 women) into a csv here:
+
+```{r}
+df_tidy_practice <- read_csv("https://raw.githubusercontent.com/gillianmcgovern0/cuny-data-607/refs/heads/main/proj_2_tidy_practice.csv", col_names = FALSE)
+df_tidy_practice
+```
+
+This data frame is untidy because each column represents a woman when each row should represent a woman (as an observation). Additionally, each row currently represents a variable (Name, Location, etc.). If a new woman is added, we should create a new row and not a new column.
+
+Let's first perform a pivot_longer on everything so we have each woman represented in rows:
+
+```{r}
+df_tidy_practice2 <- df_tidy_practice %>%
+  pivot_longer(
+    everything() # the entire data frame is untidy (all rows and columns), so we can use everything() here
+  )
+head(df_tidy_practice2, 10)
+```
+
+This data frame is still untidy since each descriptive category needs to be a variable, and not a row. So let's use a pivot_wider:
+
+```{r}
+df_tidy_practice3 <- df_tidy_practice2 %>% 
+   group_by(name) %>%
+   mutate(row_number = row_number()) %>% # use row number to make creating the new variable names easier
+   ungroup %>%
+   pivot_wider(names_from = row_number, values_from = value)
+colnames(df_tidy_practice3) <- df_tidy_practice3[1,] # create the columns
+df_tidy_practice3
+```
+We now have a tidy data frame where each row represent a woman, and each category is a variable. Lastly, each cell contains a single value.
+
+## Clean Up
+
+Let's do a little clean up so the data frame makes more sense and is easier to read:
+
+```{r}
+df_tidy_practice4 <- df_tidy_practice3[-1,] # remove the first row since it's just the variable names
+df_tidy_practice5 <- df_tidy_practice4[,-1] # remove the first variable since it's not a real variable
+
+df_tidy_practice5$Location<- str_sub(df_tidy_practice5$Location, 17) # just include the location name
+df_tidy_practice5
+```
+This is now a cleaner, tidy data frame. I won't do any analysis on this one since this was more for extra tidying practice.
