@@ -1,0 +1,250 @@
+---
+title: "Week 7 Assignment"
+author: "Gillian McGovern"
+date: "2025-03-14"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+## Overview
+
+This assignment is for working with JSON, HTML, XML, and Parquet in R.
+
+## Load the Libraries
+
+```{r}
+library(tidyverse)
+library(repurrrsive)
+library(jsonlite)
+library(xml2)
+library(XML)
+library(rvest)
+library(arrow)
+```
+
+## Read the Original Data
+
+I first pasted the text from the PDF into a CSV, and imported the original data via the usual `read_csv`:
+
+```{r}
+df <- read_csv("https://raw.githubusercontent.com/gillianmcgovern0/cuny-data-607/refs/heads/main/assignment_7_text.csv")
+head(df, 5)
+
+# Separate into columns
+cunymart <- df %>% 
+  separate_wider_delim(`Category,Item Name,Item ID,Brand,Price,Variation ID,Variation Details`, delim = ",", names = c("Category", "Item Name", "Item ID", "Brand", "Price", "Variation ID", "Variation Details"), too_many = "merge")
+
+head(cunymart, 5)
+```
+
+This data frame now matches the original data in the PDF. This data frame is tidy since each row represents a Variation ID for a particular item. If any new item is created, then a new row can be added. Each feature of the item is now a column.
+
+I would probably separate the `Variation Details` into 2 separate columns to make it easier to read, but for the purpose of this assignment I won't alter the original data.
+
+Now let's convert the data frame into the different file types.
+
+# Data Frame Conversion
+
+For each file type, I save the new converted file to the `Downloads` folder of the person running the markdown file. Note: I then use this file type directly for the importing section later on.
+
+I go into the pros and cons of each file type in the `Conclusions` section.
+
+Let's convert the data frame:
+
+JSON:
+
+```{r}
+# Convert to JSON
+print(toJSON(as.data.frame(cunymart)))
+
+write(toJSON(as.data.frame(cunymart)), "~/Downloads/cunymart.json")
+```
+
+HTML:
+
+```{r}
+# Convert to HTML
+html_content <- "<html><body><table border='1'><tr><th>Cateogry</th><th>Item Name</th><th>Item ID</th><th>Brand</th><th>Price</th><th>Variation ID</th><th>Variation Details</th>"
+for (i in 1:nrow(cunymart)) {
+  html_content <- paste0(html_content, "<tr>")
+  for (j in 1:ncol(cunymart)) {
+    html_content <- paste0(html_content, "<td>", cunymart[i, j], "</td>")
+  }
+  html_content <- paste0(html_content, "</tr>")
+}
+html_content <- paste0(html_content, "</html></body></table>")
+print(html_content)
+
+writeLines(html_content, "~/Downloads/cunymart.html")
+```
+
+XML:
+
+```{r}
+# Convert to XML
+xml_content <- xml_new_document()
+cunymart_node <- xml_add_child(xml_content, "cunymart")
+for (i in 1:nrow(cunymart)) {
+  single_cunymart_node <- xml_add_child(cunymart_node, "Item")
+  xml_add_child(single_cunymart_node, "Category", cunymart[i, "Category"])
+  xml_add_child(single_cunymart_node, "ItemName", cunymart[i, "Item Name"])
+  xml_add_child(single_cunymart_node, "ItemID", cunymart[i, "Item ID"])
+  xml_add_child(single_cunymart_node, "Brand", cunymart[i, "Brand"])
+  xml_add_child(single_cunymart_node, "Price", cunymart[i, "Price"])
+  xml_add_child(single_cunymart_node, "VariationID", cunymart[i, "Variation ID"])
+  xml_add_child(single_cunymart_node, "VariationDetails", cunymart[i, "Variation Details"])
+}
+print(xml_content)
+
+write_xml(xml_content, "~/Downloads/cunymart.xml")
+```
+Parquet:
+
+```{r}
+# Convert to Parquet
+pq_path <- "~/Downloads"
+cunymart |>
+  write_dataset(path = pq_path, format = "parquet")
+```
+
+Now let's read the new file types.
+
+# Read New File Types
+
+Read JSON:
+
+```{r}
+# Import JSON
+cunymart_json <- fromJSON("~/Downloads/cunymart.json")
+
+head(cunymart_json, 5)
+```
+
+We now have a clean, tidy data frame.
+
+Read HTML:
+
+```{r}
+# Import HTML
+cunymart_html <- read_html("~/Downloads/cunymart.html")
+cunymart_html_df <- cunymart_html |>
+  html_elements("table") |>
+  html_table() |>
+  as.data.frame()
+
+head(cunymart_html_df, 5)
+```
+
+We now have a clean, tidy data frame.
+
+Read XML:
+
+When doing research about reading XML files online, I found the `XML` library so that is what I used to import the XML file:
+
+```{r}
+# Import XML
+cunymart_xml <- xmlParse("~/Downloads/cunymart.xml")
+
+# Convert to data frame
+xml_df <- xmlToDataFrame(nodes = getNodeSet(cunymart_xml, "//Item")) #Each node/observation is under "Item"
+head(xml_df, 5)
+```
+
+We now have our tidy frame, but now each item is a list represented by a string. Let's clean the data to make it easier to read:
+
+```{r}
+# We only want the values inside the ""
+xml_df_clean <- xml_df %>%
+  mutate(
+    across(
+      .cols = everything(),
+      .fns = ~ str_replace_all(
+        str_extract(..1,'"(.*)"'),
+        '\\"',
+        '')
+    )
+  )
+
+head(xml_df_clean, 5)
+```
+
+We now have a clean, tidy data frame.
+
+Read parquet:
+
+```{r}
+pq_path <- "~/Downloads/part-0.parquet"
+cunymart_parquet_df <- open_dataset(pq_path)
+head(cunymart_parquet_df, 5) |> collect()
+```
+
+We now have a clean, tidy data frame.
+
+## Conclusions
+
+This showed the ease of importing and converting data into different file types in R. Here are the pros and cons I found for each file type:
+
+JSON:
+
+Pros:
+
+* Can be easily read and written by machines
+* Very common file type returned by web APIs
+* Human readable
+* Supports hierarchical data
+* Supported by JavaScript
+
+Cons:
+
+* Numbers can sometimes be stored as strings
+* Can become verbose with nested structures
+* Queries can become complex
+
+HTML:
+
+Pros:
+
+* Has good structure
+* Using `table` makes it very easy for extracting data frames
+* Fast to download
+* Human readable
+* Supports hierarchical data
+
+Cons:
+
+* rvest doesn't run JavaScript
+* Scraping web data can be very complex and difficult
+* Legal and ethical considerations for web scraping
+* A lot of code needs to be written to create a data frame
+* Can become verbose with nested structures
+
+XML:
+
+Pros:
+
+* Human readable
+* Has good structure
+* Supports hierarchical data
+
+Cons:
+
+* A lot of code needs to be written to create a data frame
+* Can become verbose with nested structures
+* Larger file size than CSV or JSON
+
+Parquet:
+
+Pros:
+
+* Smaller than CSVs - less data to move from disk to memory
+* Can store type with the data
+* “column-oriented” similar to a data frame
+* Parquet files are “chunked”
+
+Cons:
+
+* Not human readable
+* Might not be the best for frequent updating of parquet files
+* Not the best choice if low latency is important
