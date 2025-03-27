@@ -1,0 +1,110 @@
+---
+title: "Week 9 Assignment"
+author: "Gillian McGovern"
+date: "2025-03-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Overview
+
+This assignment explores how to use an API to import JSON into R, and create a data frame.
+
+The API that I chose is the NYT Books API.
+
+Note: I didn't realize when I did this assignment that it's a deprecated API, so probably wouldn't have chosen that one.
+
+### Load the Libraries
+
+```{r}
+library(httr2)
+library(purrr)
+library(dplyr)
+library(tidyr)
+library(jsonlite)
+library(stringr)
+library(tidyjson)
+library(tidytext)
+library(tidyverse)
+```
+
+### Read the Data
+
+Read the current best sellers list for hardcover fiction:
+
+```{r}
+# API Call
+nyt_url <- "https://api.nytimes.com/svc/books/v3/lists/current/hardcover-fiction.json"
+
+# Get the API Key
+api <- read_csv("https://raw.githubusercontent.com/gillianmcgovern0/cuny-data-607/refs/heads/main/NYT_API.csv")
+api_key <- api$api_key
+
+# Must include API key in the URL
+full_url <- paste(nyt_url, api_key, sep = "?api-key=")
+
+# API Request
+req <- fromJSON(full_url, flatten=TRUE)
+
+# Actual df exists under requests -> books
+df <- req$results$books
+glimpse(df)
+head(df)
+```
+
+As we can see above, `isbns` and `buy_links` are both lists, so we can't see the data after using `fromJSON`. So we need to unnest these variables to show the values:
+
+```{r}
+# Unnest the variables that are lists or objects
+final_df <- df |> 
+  unnest_wider(buy_links) |>
+  unnest_wider(isbns)
+head(final_df)
+```
+
+This data frame now looks exactly like the original JSON (we can see all the values).
+
+Yet, having a list for a data frame value is not a good structure. For example, if we wanted to add another buy link for a book, we need to update the lists in `name` and `url` which is not feasible.
+
+The other list variables are `isbn10` and `isbn13`. An ISBN is the International Standard Book Number that identifies a book. According to online research, it looks like `isbn10` (10 digit ID) and `isbn13` (13 digit ID) have no relation to each other, they are separate ISBNs. So for this particular data frame, it makes more sense to have one `isbn` column that includes ISBN10 and ISBN13 values. We could also create separate data frames to separate this data, but I will hold off on doing that for this assignment.
+
+### Tidy the Data Frame
+
+Let's first separate the buy links. The `name` and `url` columns are connected to each other, so let's `unnest` them at the same time to turn each value into a separate row/observation:
+
+```{r}
+# Unnest connected columns at the same time to create accurate observations
+final_df_wider <- final_df |>
+  unnest(c("name", "url"))
+head(final_df_wider)
+```
+
+We now have each row represent a unique book and store combination.
+
+Now let's combine the ISBN values into one column, then separate into rows:
+
+```{r}
+# Create one ISBN variable so we can have ISBN related observations
+final_df_wider2 <- final_df_wider |> 
+  mutate(isbn = mapply(c, isbn10, isbn13)) |>
+  unnest(isbn) # unnest the list
+
+# Remove the old variables
+drop <- c("isbn10","isbn13")
+final_df_wider2 <- final_df_wider2[ , !(names(final_df_wider2) %in% drop)]
+
+# Final tidy data frame
+head(final_df_wider2)
+```
+
+We now have a final tidy date frame where each row represents an ISBN (book identifier) and a store where the book is sold. So if we have a new ISBN best seller, we can just add an additional row and not make an addition to a variable.
+
+### Conclusions
+
+Takeaways from this assignment:
+
+* `fromJSON` does a good job importing JSON
+* `unnest_wider` and `unnest` makes it very easy to keep the data frame tidy when separating columns into rows
