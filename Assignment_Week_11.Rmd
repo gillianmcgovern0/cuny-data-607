@@ -1,0 +1,76 @@
+---
+title: "Week 11 Assignment"
+author: "Gillian McGovern"
+date: "2025-04-11"
+output:
+  html_document:
+    df_print: paged
+---
+
+### Overview
+
+This lab explores popular R recombination system. After doing research online, I saw that the `recommenderlab` was a recommended package to use for R.
+
+### Load the Libraries
+
+```{r}
+library(recommenderlab)
+```
+
+### Get the Data
+
+The below data frame is the survey data I collected:
+
+```{r}
+df <- data.frame(Id = c(1, 2, 3, 4, 5),
+                 Barbie = c(5, 4, 4, 3, 4),
+                 Oppenheimer = c(3, 2, 2, 3, 4),
+                 TopGunMaverick = c(3, 3, 3, 5, 3),
+                 AvatarTheWayOfWater = c(2, 5, 5, 4, 4),
+                 Wicked = c(4, 3, 4, 3, 4),
+                 GetOut = c(5, 5, 4, 4, 5))
+```
+
+I then turned the data frame into a matrix:
+
+```{r}
+movie_matrix <- as.matrix(df[, -which(names(df) == "Id")])
+row.names(movie_matrix) = c("u1", "u2", "u3", "u4", "u5")
+r <- as(movie_matrix, "realRatingMatrix")
+r
+getRatingMatrix(r)
+```
+
+### Creating the Recommender
+
+Create the evaluation scheme using the split method:
+
+```{r}
+
+# eval_scheme <- evaluationScheme(r, method="cross", train=0.8,
+#                       given=-1, goodRating=5)
+eval_scheme <- evaluationScheme(r, method="split", train=0.9, k=3, given=-1, goodRating=5)
+eval_scheme
+```
+
+Evaluate several recommender algorithms using an evaluation scheme:
+
+```{r}
+algorithms <- list("random items" = list(name="RANDOM", param=NULL),
+                   "popular items" = list(name="POPULAR", param=NULL),
+                   "user-based CF" = list(name="UBCF", param=list(nn=50)),
+                   "item-based CF" = list(name="IBCF", param=list(k=50)),
+                   "SVD approximation" = list(name="SVD", param=list(k = 3)))
+results <- recommenderlab::evaluate(
+  eval_scheme,
+  algorithms,
+  type= "topNList",
+  n = 1:5)
+results
+```
+
+```{r}
+getConfusionMatrix(results$`random items`)[[1]]
+avg(results)
+```
+
