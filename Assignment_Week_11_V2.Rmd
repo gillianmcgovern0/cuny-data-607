@@ -1,0 +1,142 @@
+---
+title: "Week 11 Assignment V2"
+author: "Gillian McGovern"
+date: "2025-04-11"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r}
+library(recommenderlab)
+library(tidyverse)
+library(tidyr)
+library(dplyr)
+```
+
+### Overview
+
+This lab focuses on recommender systems. Specifically, this lab creates a function that performs the Global Baseline Estimate algorithm to create a prediction for a movie rating.
+
+### Get the Data
+
+The below data frame is the survey data I collected, but I removed one rating for `Wicked` to make the prediction:
+
+```{r}
+df <- data.frame(Critic = c(1, 2, 3, 4, 5),
+                 Barbie = c(5, 4, 4, 3, 4),
+                 Oppenheimer = c(3, 2, 2, 3, 4),
+                 TopGunMaverick = c(3, 3, 3, 5, 3),
+                 AvatarTheWayOfWater = c(2, 5, 5, 4, 4),
+                 Wicked = c(4, 3, 4, 3, NA),
+                 GetOut = c(5, 5, 4, 4, 5))
+```
+
+I then turned the data frame into a matrix:
+
+```{r}
+movie_matrix <- as.matrix(df[, -which(names(df) == "Critic")])
+row.names(movie_matrix) = c("u1", "u2", "u3", "u4", "u5")
+r <- as(movie_matrix, "realRatingMatrix")
+r
+getRatingMatrix(r)
+```
+
+### Creating the Recommender
+
+I first found the overall mean movie rating for the entire matrix:
+
+```{r}
+# Find the mean movie rating for all observations
+mean_movie_rating_overall = mean(movie_matrix, na.rm = TRUE)
+mean_movie_rating_overall
+```
+
+I then created new data frames related to average movie ratings for each user and movie:
+
+```{r}
+# Find the mean for each movie
+movie_mean_ratings <- data.frame(movie=c("Barbie", "Oppenheimer", "TopGunMaverick", "AvatarTheWayOfWater", "Wicked", "GetOut"), mean_rating=NA, relative_to_avg=NA)
+movie_mean_ratings$mean_rating <- colMeans(df[, -which(names(df) == "Critic")], na.rm = TRUE)
+# Find the mean diff -- movie avg - overall mean movie rating
+movie_mean_ratings$relative_to_avg  <- movie_mean_ratings$mean_rating - mean_movie_rating_overall
+movie_mean_ratings
+
+# Find the mean for each user
+user_mean_ratings <- data.frame(user=c("u1", "u2", "u3", "u4", "u5"), mean_rating=NA, relative_to_avg=NA)
+user_mean_ratings$mean_rating  <- rowMeans(df[, -which(names(df) == "Critic")], na.rm = TRUE)
+# Find the mean diff -- user avg - overall mean user rating
+user_mean_ratings$relative_to_avg  <- user_mean_ratings$mean_rating - mean_movie_rating_overall
+user_mean_ratings
+
+```
+
+I then created a function `predict_rating` which uses the Global Baseline Estimate algorithm:
+
+```{r}
+# Global Baseline Estimate = Mean Movie Rating + Selected Movie's rating relative to average + User's rating relative to average
+# This takes in the user, movie, the overall mean movie rating, the mean movie rating df and the mean user rating df
+predict_rating <- function(user1, movie1, mean_movie_rating_overall, movie_mean_ratings, user_mean_ratings) {
+  filtered_movie_rating <- movie_mean_ratings |>
+    filter(movie == movie1)
+  filtered_user_rating <- user_mean_ratings |>
+    filter(user == user1)
+  final_prediction <- mean_movie_rating_overall + filtered_movie_rating$relative_to_avg + filtered_user_rating$relative_to_avg
+  return(final_prediction)
+}
+```
+
+To predict the unknown movie rating for `u5` and `Wicked`, we would call `predict_rating`:
+
+```{r}
+# Predict `u5`'s movie rating for `Wicked`
+predict_rating("u5", "Wicked", mean_movie_rating_overall, movie_mean_ratings, user_mean_ratings)
+```
+
+The predicted rating for `Wicked` is 3.775862 which is high, so it would be recommended as a movie.
+
+Let's try a similar data frame with missing data for the movie `Conclave`, and run the same above lines of code:
+
+```{r}
+df <- data.frame(Critic = c(1, 2, 3, 4, 5),
+                 Barbie = c(5, 4, 4, 3, 4),
+                 Oppenheimer = c(3, 2, 2, 3, 4),
+                 TopGunMaverick = c(3, 3, 3, 5, 3),
+                 AvatarTheWayOfWater = c(2, 5, 5, 4, 4),
+                 Wicked = c(4, 3, 4, 3, NA),
+                 GetOut = c(5, 5, 4, 4, 5),
+                 Conclave = c(2, NA, 1, 2, NA))
+movie_matrix <- as.matrix(df[, -which(names(df) == "Critic")])
+row.names(movie_matrix) = c("u1", "u2", "u3", "u4", "u5")
+r <- as(movie_matrix, "realRatingMatrix")
+r
+getRatingMatrix(r)
+
+# Find the mean movie rating for all observations
+mean_movie_rating_overall = mean(movie_matrix, na.rm = TRUE)
+
+# Find the mean for each movie
+movie_mean_ratings <- data.frame(movie=c("Barbie", "Oppenheimer", "TopGunMaverick", "AvatarTheWayOfWater", "Wicked", "GetOut", "Conclave"), mean_rating=NA, relative_to_avg=NA)
+movie_mean_ratings$mean_rating <- colMeans(df[, -which(names(df) == "Critic")], na.rm = TRUE)
+# Find the mean diff -- movie avg - overall mean movie rating
+movie_mean_ratings$relative_to_avg  <- movie_mean_ratings$mean_rating - mean_movie_rating_overall
+movie_mean_ratings
+
+# Find the mean for each user
+user_mean_ratings <- data.frame(user=c("u1", "u2", "u3", "u4", "u5"), mean_rating=NA, relative_to_avg=NA)
+user_mean_ratings$mean_rating  <- rowMeans(df[, -which(names(df) == "Critic")], na.rm = TRUE)
+# Find the mean diff -- user avg - overall mean user rating
+user_mean_ratings$relative_to_avg  <- user_mean_ratings$mean_rating - mean_movie_rating_overall
+user_mean_ratings
+
+# Predict `u2` and `u5`'s movie rating for `Conclave`
+predict_rating("u2", "Conclave", mean_movie_rating_overall, movie_mean_ratings, user_mean_ratings)
+predict_rating("u5", "Conclave", mean_movie_rating_overall, movie_mean_ratings, user_mean_ratings)
+```
+
+
+`u2`'s predicted rating for `Conclave` is 1.802083 and `u5`'s predicted rating for `Conclave` is 2.135417, so `Conclave` might not be recommended for these users.
+
+### Conclusions
+
+This lab provided a good example of creating an algorithm to show how a prediction can be made using averages. This algorithm used all of the existing data to make a prediction for a user.
