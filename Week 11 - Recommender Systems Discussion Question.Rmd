@@ -1,0 +1,180 @@
+---
+title: "Week 11: Recommender Systems Discussion Question"
+author: "Gillian McGovern"
+date: "2025-04-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+According to the National Association of REALTORS® Profile of Home Buyers and Sellers, the number one method home buyers find a home is through the internet. Zillow is the #1 U.S. residential real estate app. Providing important, easily digestible real estate data to a user is a key feature of Zillow. Yet Zillow, compared to Amazon or Netflix, has a large portion of new home buyer users, or people who do not posses a lot of knowledge about the real estate market. So how does Zillow keep these users and existing users engaged? This markdown will dive into Zillow's recommender system.
+
+### Scenario Design Analysis
+
+#### Zillow
+
+###### Zillow: Who are their target users?
+
+The main target users for Zillow are home buyers, renters and sellers. People who are actively searching for a new home will use Zillow to explore all the options available to them, and gather information about the current real estate market climate. These users include home buyers that have been on the hunt for a new house for a while, and brand new home buyers that don't posses a lot of real estate knowledge. Sellers will also use Zillow as a platform to promote the house they are looking to sell.
+
+Since Zillow's primary source of of income is selling advertising space, another group of users are people generally interested in real estate. There are plenty of people who just like to look at houses and keep up with the real estate market.
+
+###### Zillow: What are their key goals?
+
+Zillow's key goals are: 
+
+* Increase consumers (so advertisers will want to buy more ad space)
+ + Make Zillow the one-stop shop for people interested in the house purchasing/renting experience
+ + Provide clear information about the real estate market so buyers can make informed decisions
+* Personalize the product to the user
+* Keep the users engaged
+
+###### Zillow: How can they accomplish these goals?
+
+Some ways Zillow can accomplish these goals:
+
+* Create an easy, seamless end-to-end house purchase/rental process experience for buyers/renters and sellers
+ + Make it easy for sellers to upload new homes which in turn will gather more buyers to use the website
+ + Entice Sellers to only advertise on Zillow (provide exclusive homes for buyers)
+ + Make it so the user never needs to leave the website during the entire process
+* Personalized experience:
+ + For buyers, give the ability to filter for the houses they're interested in, and save and share their favorite homes
+* Recommendation system to keep the users engaged on their website
+ + Notification system to inform users of new or existing houses on the market that have not been looked at yet
+* Create an easy UI to navigate and gather all the important data about a house such as amenities 
+* For brand new users aka new home buyers, which is a large portion of Zillow's consumers, create a home page of houses that would make sense for the user, and entice the user to continue using the website
+
+#### The Customer
+
+###### Who are your target users?
+
+People involved in the house purchasing/renting process:
+
+* Home buyers
+* Renters
+* Sellers
+* Landlords
+* Real Estate Agents
+
+#### What are the users' goals?
+
+Some goals for a home buyer/renter:
+
+* Browse a wide diverse selection of home options filtered to the user's criteria
+* Be notified/shown when a new home that is recommended and fits the user's criteria is on the market
+* Save a list of favorite homes
+* Share favorite homes with friends and family
+* Ability to dislike a home
+* Look at individual home details such as amenities, price, location, etc. and be able to "tour" the house
+* Provide easy communication to the seller
+
+Some goals for a home seller:
+
+* Easily input house data
+* Easily communicate with buyers
+* Create easy sale process through Zillow
+
+(Since recommender systems are mainly for buyers/renters, we'll focus on them in this markdown)
+
+#### How can the user accomplish these goals?
+
+The only 2 ways home buyer/renters can accomplish most of these goals are:
+
+* Use a real estate agent
+* Use a website or app service such as Zillow
+
+Buyers could also see a yard sign, talk to the seller directly, or look in the newspaper, but these options do not provide all the features an average home buyer wants.
+
+### Reverse Engineer Zillow
+
+Zillow needs to create a great first impression for interested new home buyers. To do that, they need to create a great first home page that would make sense for the user. After a user visits the site and views one or all the current housing options, Zillow needs to provide a reason for the user to return. One way Zillow does this is via their recommender system - recommending new or existing houses the user has not seen yet. A key part of real estate is the need for buyers to act fast on a home due to competition, so the recommender system is very important to Zillow's business model.
+
+#### How Zillow Uses Recommender Systems
+
+Zillow's home page consists of a search bar to immediately start filtering for homes, a "Trending Homes in New York, NY; Viewed and saved the most in the area over the past 24 hours" section/carousel which uses location of the user, a "Find homes you can afford with BuyAbility℠", and a "Selling Soon Homes in New York, NY; Likely to sell in the next month based on the list date, price, and property details" section. Each house in the carousel is labelled with (assuming) it's most popular feature such as "Spacious backyard".
+
+For a new home buyer using Zillow (without an account), the recommender system first comes into play after the user clicks on the first home listing. This could just be from clicking on one of the houses on the home page under "Trending". The listing contains all the data about the house including photos, price, location, amenities, size, etc. It is here where you can also share, save, or hide the listing. Once you scroll down to the bottom of the listing, it shows "Similar homes" which is an entire carousel of homes recommended by Zillow.
+
+If you then go back to the home page after looking at a home, instead of the "Trending" section, there is a "Homes For You; Based on homes you recently viewed" section. Unlike Netflix, there is no autoplay feature that will automatically load a new home for the user. The user must click on the home to view it.
+
+I first clicked on a home labelled as having a lot of light. Then on the home page, the first three homes in the "Similar homes" section had a highlighted feature involving light. Additionally, once I clicked on homes with a higher price, I started seeing a wider range of prices in "Similar homes".
+
+I was not able to use the save/hide feature since I do not have an account.
+
+#### Recommender Models Used
+
+Zillow has stated they use 2 models for their recommendation engine: Collaborative Filtering (CF) and Content Based Models.
+
+Collaborative Filtering (CF):
+
+Along with content based models, CF is one of the most popular approaches to building a recommendation engine. CF utilizes user engagement ("collaborative") data. This includes implicit user feedback such as clicks, saves, hides, shares, how long a user stays on a listing, etc. This is handy approach as you do not need to know the attributes of the recommended items.
+
+Additionally, this is particularly useful for Zillow since it does not have any explicit user ratings for listings to use for their recommendation engine. To handle the collaborative data, Zillow uses Implicit Matrix Factorization (IMF). This method uses a user-item matrix where each entry represents the implicit feedback or a confidence that particular item is relevant to the user. This matrix consists of disjointed sub-matrices due to the difference in looking for homes by region. Each region therefore has their own IMF method.
+
+Content Based Models:
+
+Content based models involve defining and mapping user and item information to machine learning variables. Content is very important for Zillow as there are many different features that go into buying a house such as location, price, size, amenities, etc. What makes content more interesting and complex for real estate is that location plays a big role when deciding the importance of these features. Someone in a big city such as New York City might value space over a specific neighborhood, whereas a person looking in a small town in Pennsylvania might value proximity to a school.
+
+A large portion of Zillow's users are brand new home buyers, and a lot of Zillow's content is brand new homes, so Zillow uses a combination of the two models to recommend homes.
+
+Neural network models:
+
+Zillow has also explored using a home embedding model (deep neural network) for similar home recommendations which combines collaborative and content information. For this Zillow has to give numerical representations for all of the categorical home attributes. Zillow will also use co-clicks to determine similarity. For example, homes co-clicked within 5 mins by any user are more similar. I won't go into the major details here since a whole blog post was devoted to this, but this method helps with new home listings. Zillow can get the contents of the new listing, look up the categorical embeddings/representations related to attributes, map the numerical representation to the embedding space and then use the nearest neighbor search which will include the new listing.
+
+### Recommendations for the Recommender System
+
+Some recommendations are:
+
+* Ranking System for Saved Searches
+
+To my knowledge, there is no way for a user to rank their saved searches. For example, one house has a pool which is a want for the user, but another house is near a specific school so the user ranks it higher in their saved searches. Being able to rank by interest could help determine which variables are more important to a specific user. It would give a whole new layer of information to Zillow in order to improve recommendations. Additionally, it would also greatly improve the user experience.
+
+* Organizing System for Saved Searches
+
+Similar to ranking, I do not believe there is a way for a user to organize their saved searches. For example, a "Pools" folder could be created to organize all the listings that match a user's need for a pool. This would be similar to a playlist for a music streaming service. Learning about how users are organizing their top picks would greatly help Zillow to filter their recommendations.
+
+* Rating System for Listings
+
+There isn't a way for a user to actually rate a listing. Giving a rating option removes a lot of the guess work on Zillow about how a user feels about a listing. This could be listed along with the save and hide option on a listing.
+
+Another option could be a button for the user to select which features matters the most to them for the particular listing. Zillow already highlights features in the "Similar homes" carousel, so this could allow Zillow to pinpoint the exact features to highlight.
+
+* Using Notes
+
+I'm not sure if Zillow already uses this, but using the text from the notes on a listing could be useful to Zillow. They could use sentiment analysis and NLP to figure out what features the user is highlighting, and then use those features for recommendations.
+
+* More Detailed Attention Metrics
+
+I know Zillow already uses the time spent on a page, but if they are able to focus on which parts of the listing the user takes the time to look at could be helpful. For example, if a user spends a lot of time looking at the school ratings section of a listing, Zillow could make that feature more prominent for that particular user.
+
+* Confirm Recommendations are Relevant
+
+Zillow could provide a button asking the user if the recommended home is relevant to their house search and use that response for future recommendations.
+
+Overall, making the user's experience more personalized would not only help users utilizing Zillow, but it would also give Zillow more data to work with for improving their product.
+
+### Conclusion
+
+Zillow has the unique problem in that many of their users are brand new, with not a lot of data attached to them. Additionally, a lot of their content, the houses for sale, are brand new. Zillow needs to be able to grasp a new user's attention so they continue to use their website, and keep existing users coming back. Looking for a house can be quite daunting and overwhelming with the amount of options, so having a personalized experience is important. Additionally, houses on the market can move fast, so it's important for a serious buyer/renter to have all the relevant info as soon as possible (such as a new house on the market).
+
+To solve this, Zillow combines different models for their recommender system -- collaborative filtering and content based models. They are continuing to do research to improve their models, and maximize their data.
+
+### Sources
+
+Lin, S. (2022, March 4). Home embeddings for similar home recommendations. Zillow. https://www.zillow.com/tech/embedding-similar-home-recommendation/ 
+
+Linda, O. (2019, September 24). Helping buyers explore the real estate market via personalized recommendation diversity. Zillow. https://www.zillow.com/tech/personalized-recommendation-diversity/ 
+
+Linda, O. (2019b, September 24). Visualizing matrix factorization using self-organizing maps. Zillow. https://www.zillow.com/tech/visualizing-matrix-factorization/
+
+Marc Lyman. (2022, October 30). How buyers find homes - essential reading for sellers. https://marclyman.com/how-buyers-find-homes/ 
+
+Market, B. R. E. (2024a, March 17). How does zillow make money: A complete guide. LinkedIn. https://www.linkedin.com/pulse/how-does-zillow-make-money-complete-guide-bestrealestatemarket-udekc/ 
+
+Nicholass. (2019, September 24). Introduction to recommendations at Zillow. Zillow. https://www.zillow.com/tech/introduction-recommendations-zillow/ 
+
+Smith, A. (2023, February 14). Zillow usage, demographic & revenue stats + fun facts (2022). 3D Rendering Services: #1 Architectural Visualization Company. https://render3dquick.com/blog/zillow-usage-growth-demographics-revenue-statistics-and-fun-facts#:~:text=Zillow%20Buyers,-Age&text=The%20largest%20generational%20group%20of,37%25%20of%20buyers%20on%20Zillow. 
